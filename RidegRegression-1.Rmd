@@ -1,0 +1,130 @@
+---
+title: "ML1 Assignment4"
+author: "Yeon(Joanne), Chung"
+date: "4/13/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(glmnet)
+library(ISLR)
+library(plotmo)
+library(gradDescent)
+library(caret)
+library(dplyr)
+```
+## R Markdown
+
+Data is "wages.csv"
+
+
+```{r}
+setwd("/Users/joanne/Documents/Rscripts")
+getwd()
+wages <- read.csv('wages.csv')
+# remove first column
+wages$X <- NULL
+head(wages)
+str(wages)
+
+# Check correlation 
+cor(wages)
+
+
+# Try Ordinary Least Squares(OLS) Regreesion 
+wages_stand <- data.frame(scale(wages)) 
+ols_wages <- lm(wage~., data = wages_stand)
+summary(ols_wages) 
+
+ols_wages_coefficient <- data.frame(ols_wages$coefficients)
+View(ols_wages_coefficient)
+ 
+ols_wages_predit <- predict(ols_wages, wages_stand)
+head(ols_wages_predit)
+head(wages_stand$wage)
+
+```
+(a) Estimate the above regression model using OLS. Is there any problem with the output?
+
+the "exp" variable is not calculated Estimate, Std Error, t value and p value. 
+
+
+```{r}
+
+
+```
+
+(b) Verify the data, correct the OLS model and provide estimates for the slope parameters as
+well as their associated standard errors.
+
+"wages$exp <- NULL" or "ols_wages <- lm(wage~edu+age, data = wages_stand)"
+Remove "exp" variable and make the model again.
+For "edu", slope is 5.871e-01 and standard error is 1.877e-02
+For "age", slope is 4.204e-01 and standard error is 1.877e-02
+
+
+
+################ Second Problem ###################
+
+```{r}
+social <- read.csv('social.csv')
+head(social)
+str(social)
+# Check correlation 
+cor(social)
+
+# Try Ordinary Least Squares(OLS) Regreesion 
+social_stand <- data.frame(scale(social)) 
+ols_social <- lm(y~., data = social_stand)
+summary(ols_social) 
+
+# Missing Estimate, Std. Error, t value and p value
+# Using cutoff of findCorrelation, find the less correlated variables and remove them.
+# cutoff = 0.4
+df = cor(social)
+hc = findCorrelation(df, cutoff=0.1) 
+hc = sort(hc)
+social_2 = social[,-c(hc)]
+str(social_2)
+# cutoff = 0.4, Remove X8/X9/X12/X13/X15/X18
+ols_social <- lm(y~X1+X2+X3+X4+X5+X6+X7+X10+X11+X14+X16+X17+X19+X20, data = social_stand)
+ols_social <- lm(y~X3+X4+X5+X8+X10+X20, data = social_stand)
+# cutoff = 0.1, Remove X1/X2/X4/X5/X6/X7/X9/X11/X12/X13/X14/X15/X16/X17/X18/X19/X20
+ols_social <- lm(y~X3+X8+X10, data = social_stand)
+
+summary(ols_social) 
+
+
+ols_social_coefficient <- data.frame(ols_social$coefficients)
+View(ols_social_coefficient)
+ 
+ols_social_predit <- predict(ols_social, social_stand)
+head(ols_social_predit)
+head(social_stand$y)
+
+```
+
+(a) Use ordinary least squares in R to estimate the parameter effects on y. Why couldn’t can’t
+you get estimates for all the variables in the data set; what is wrong?
+
+X19 and X20 are missing Estimate value and All independent variables are missing Std Error, t value and p value. Using cutoff of findCorrelation, find the less correlated variables and remove them. 
+
+
+(b) How could you choose the most important variables to the model and estimate them?
+Using "findCorrelation", remove some variables to reduce pair-wise correlations. When I use "cutoff=0.2", X3/X4/X5/X8/X10/X20 variables are remained
+
+When cutoff is 0.4, X8/X9/X12/X13/X15/X18 are missing. Remove them from the independent variables and remake the model.
+"ols_social <- lm(y~X1+X2+X3+X4+X5+X6+X7+X10+X11+X14+X16+X17+X19+X20, data = social_stand)""
+
+
+(c) Provide estimates for the most important social parameters.
+
+When "findCorrelation"(cutoff=0.1), the model is re-created with X3, X8 and X10. That time, X3 has the higest p-value and it represents X3 is the most significant. Answer is the X3.
+"ols_social <- lm(y~X3+X8+X10, data = social_stand)  #cutoff = 0.1"" 
+
+
+```{r}
+
+
+```

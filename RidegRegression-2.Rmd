@@ -1,0 +1,182 @@
+---
+title: "ML1 Assignment4"
+author: "Yeon(Joanne), Chung"
+date: "4/13/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(glmnet)
+library(ISLR)
+library(plotmo)
+library(gradDescent)
+library(caret)
+library(dplyr)
+library(ggplot2)
+```
+Data is "CreditBalance.csv""
+
+```{r}
+credit <- read.csv('./CreditBalance.csv')
+# remove first column
+credit$X <- NULL
+head(credit)
+str(credit)
+
+# Change Factor variables(Gender, Student, Married, Ethnicity) to numeric
+credit$Gender <- as.numeric(credit$Gender)
+credit$Student <- as.numeric(credit$Student)
+credit$Married <- as.numeric(credit$Married)
+credit$Ethnicity <- as.numeric(credit$Ethnicity)
+head(credit)
+
+# Check correlation 
+cor(credit)
+
+# Try Ordinary Least Squares(OLS) Regreesion 
+credit_balance <- data.frame(scale(credit)) 
+ols_credit <- lm(Balance~., data = credit_balance)
+summary(ols_credit) 
+
+ols_credit_coefficient <- data.frame(ols_credit$coefficients)
+View(ols_credit_coefficient)
+ 
+ols_credit_predit <- predict(ols_credit, credit_balance)
+head(ols_credit_predit)
+head(credit_balance$Balance)
+
+```
+(a) Estimate this regression model using ordinary least squares. Interpret your results.
+
+Ordianry Least Squares Regression shows Income/Limit/Cards/Sudent are hight siginificant and also Rating/Age are significant. Residual Standard Error is not high and Multkple R-squared and Adjusted R-squared are high so the model is not bad
+
+
+```{r}
+# split the data into test and train
+gd_trainIndex <- createDataPartition(credit_balance$Balance, p=.66, list=FALSE,times = 1)
+
+#Here we are using the index
+gd_credit_train <- credit_balance[gd_trainIndex, ]
+gd_credit_test <- credit_balance[-gd_trainIndex, ]
+dim(gd_credit_train)
+dim(gd_credit_test)
+
+head(credit_balance)
+
+gd_credit_train <- gd_credit_train%>%select(-Balance,everything())
+str(gd_credit_train)
+gd_credit_test <- gd_credit_test%>%select(-Balance,everything())
+str(gd_credit_test)
+
+GD_Credit <- gradDescentR.learn(gd_credit_train,learningMethod = "GD", control = list(.001,100), seed = 100)
+
+GD_Credit$model
+predit_GD_credit <- predict(GD_Credit, gd_credit_test)
+head(predit_GD_credit)
+predit_GD_creditv1 <- predit_GD_credit$V1
+head(predit_GD_creditv1)
+
+#Split our data in train(2/3) and test(1/3) and target/predictor variables
+n_obs = dim(credit_balance)[1]
+n_obs
+prop_split = 0.66
+train_index = sample(1:n_obs, round(n_obs * prop_split))
+predictors <- credit_balance[c(1:9,10)]    
+head(predictors)
+target <- credit_balance$Balance
+head(target)
+```
+## Ridge Regression
+```{r}
+#Ridge Regression 
+predictors <- model.matrix(credit_balance$Balance~., predictors)
+str(predictors)
+predit_train = predictors[train_index,]
+predit_test = predictors[-train_index,]
+target_train = target[train_index]
+target_test = target[-train_index]
+
+library(glmnet)
+# Make Ridge Regression Model 
+ridge.credit <- glmnet(predit_test,target_test, alpha = 0, nlambda = 100, lambda.min.ratio = .0001)
+# Check Least Amount of Penality and the Highest Penality 
+credit_coefs100 <- data.frame(coef(ridge.credit)[,100])
+credit_coefs1<- data.frame(coef(ridge.credit)[,1])
+#View(credit_coefs1)
+credit_lambda <- data.frame(ridge.credit$lambda)
+#View(credit_lambda)
+
+## Show the Graph 
+#plot_glmnet(ridge.credit,xvar="lambda",label=5)
+#plot_glmnet(ridge.credit,label=5)
+#cv.glmnet(No use cross validation)
+set.seed(500)
+cv.credit.ridge <- cv.glmnet(predictors, target, alpha=0, nlambda=100, lambda.min.ratio=.0001)
+# Find Lambda Outputs and Mean Cross Validated Error, cvm
+cv.credit.ridge.output <- data.frame(cv.credit.ridge$lambda,cv.credit.ridge$cvm,cv.credit.ridge$cvsd)
+#View(cv.credit.ridge.output)
+# Find Best Lambda Output 
+best.penality <- cv.credit.ridge$lambda.min
+best.penality
+#credit.best.coef <- data.frame(predict(ridge.credit, s=best.penality, type="coefficients")[1:11, ])
+#View(credit.best.coef)
+#cv.credit.ridge$lambda
+
+```
+(b) Estimate this regression model using ridge regression, find the optimal value of l, and find
+the parameter estimates associated with the optimal l.
+
+optimal value is 0.0946642
+
+
+```{r}
+# Lasso Model 
+cv.credit.lasso <- cv.glmnet(predictors, target, family="gaussian", alpha=1, nlambda=100, lambda.min.ratio=.0001)
+coef(cv.credit.lasso, s=cv.credit.lasso$lambda.1se)
+# Find Best Lambda Output 
+best.penality <- cv.credit.lasso$lambda.min
+best.penality
+
+plot(cv.credit.lasso, xvar = 'lambda')
+
+```
+(c) Estimate this regression model using lasso regression, find the optimal value of l, and find
+the parameter estimates associated with the optimal l.
+ 
+the optimal value is 0.001693211
+
+
+```{r}
+
+# Compare the models using RMS: OLS, GD,Ridge, Lasso
+y_hat_ols <- predict(ols_credit, credit_balance)
+RMSE_OLS <- sqrt(mean((credit$Balance-y_hat_ols)^2))
+RMSE_OLS
+
+y_hat_gd <- predit_GD_creditv1
+RSME_gd <- sqrt(mean((gd_credit_test-y_hat_gd)^2))
+RSME_gd
+
+y_hat_ridge <- predict(cv.credit.ridge, predit_test)
+RMSE_Ridge <- sqrt(mean((target_test-y_hat_ridge)^2))
+RMSE_Ridge 
+
+y_hat_lasso <- predict(cv.credit.lasso, predit_test)
+RMSE_Lasso <- sqrt(mean((target_test-y_hat_lasso)^2)) 
+RMSE_Lasso
+
+```
+(d) Assume your main interest is prediction rather than inference, given your results in (a)-(c)
+which model would you report and why?
+The OLS is great to predit and also Ridge and Lasso are great too. We need to check over-fitting, RMSE and parameters then decide the model. This case Lasso model is best because RMSE is the lowest.
+
+
+(e) Between the ridge and lasso regression modeling, which is the best model and why?
+Remember to fix the seed in R before doing your cross validation.
+The Lasso model is better than the Ridge model because of RMSE's value
+
+
+
